@@ -1,19 +1,31 @@
-# import random
-# from sqlalchemy.exc import IntegrityError
-# from sqlalchemy.orm import Session
-# from contextlib import suppress
+import random
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlmodel import select
+from typing import Optional
+from .models import User
 
-# def generate_referral_code(session: Session) -> int:
-#     """
-#     Generate a unique 6-digit referral code.
-#     Retries automatically if a duplicate is hit.
-#     """
-#     while True:
-#         code = random.randint(100000, 999999)
-#         # Check if code already exists
-#         exists = session.query(User).filter_by(referral_code=code).first()
-#         if not exists:
-#             return code
+async def generate_referral_code(session: Session) -> int:
+    """
+    Generate a unique 6-digit referral code.
+    Retries automatically if a duplicate is hit.
+    """
+    while True:
+        code = random.randint(100000, 999999)
+        # Check if code already exists
+        result = await session.exec(select(User).where(User.referral_code == code))
+        exists = result.first()
+        if not exists:
+            return code
+        
+
+async def check_referral_code_exists(session: Session, code: int) -> Optional[User]:
+    """
+    Check if a referral code already exists in the database.
+    """
+    result = await session.exec(select(User).where(User.referral_code == code))
+    return result.first()
+
 
 
 # def create_user(session: Session, phone_number: str, hashed_password: str, **kwargs) -> User:
@@ -36,3 +48,6 @@
 #             # Rollback and retry if duplicate referral_code was inserted
 #             session.rollback()
 #             continue
+
+
+
