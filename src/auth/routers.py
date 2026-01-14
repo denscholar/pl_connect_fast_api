@@ -13,13 +13,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from .service import UserService
 import uuid
-from .security import (
+from .dependencies import (
     create_access_token,
     verify_password,
     decode_access_token,
     RefreshTokenBearer,
+    AccessTokenBearer,
 )
 from datetime import datetime, timedelta
+from src.db.redis import add_jti_to_blacklist
 
 
 auth_router = APIRouter()
@@ -124,4 +126,24 @@ async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer(
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired refresh token.",
+    )
+
+
+# endpoint/router to revoke the token
+@auth_router.get("/logout")
+async def revoke_token(token_details: dict = Depends(AccessTokenBearer())):
+    jti = token_details.get("jti")
+
+    if jti:
+        # Here you would add the jti to your blacklist
+        await add_jti_to_blacklist(jti, expiry=3600)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "Logged out successfully"},
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid token.",
     )

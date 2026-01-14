@@ -7,7 +7,7 @@ from .book_data import books
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 import uuid
-from src.auth.security import AccessTokenBearer
+from src.auth.dependencies import AccessTokenBearer
 
 router = APIRouter()
 book_service = BookService()
