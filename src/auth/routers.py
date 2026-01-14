@@ -13,12 +13,20 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from .service import UserService
 import uuid
-from .security import create_access_token, verify_password, decode_access_token
-from datetime import timedelta
+from .dependencies import (
+    create_access_token,
+    verify_password,
+    decode_access_token,
+    RefreshTokenBearer,
+    AccessTokenBearer,
+)
+from datetime import datetime, timedelta
+from src.db.redis import add_jti_to_blacklist
 
 
 auth_router = APIRouter()
 user_service = UserService()
+
 
 REFRESH_TOKEN_EXPIRY_DAYS = 2
 
@@ -101,4 +109,41 @@ async def login_user(
         detail="Invalid phone number",
     )
 
-   
+
+@auth_router.get("/refresh-token", status_code=status.HTTP_200_OK)
+async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer())):
+    expiry_timestamp = token_details.get("exp")
+
+    if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
+        new_access_token = create_access_token(
+            user_data=token_details.get("user"), refresh=False
+        )
+        return {
+            "message": "Token refreshed successfully",
+            "access_token": new_access_token,
+        }
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token.",
+    )
+
+
+# endpoint/router to revoke the token
+@auth_router.get("/logout")
+async def revoke_token(token_details: dict = Depends(AccessTokenBearer())):
+    jti = token_details.get("jti")
+
+    if jti:
+        # Here you would add the jti to your blacklist
+        await add_jti_to_blacklist(jti, expiry=3600)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "Logged out successfully"},
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid token.",
+    )

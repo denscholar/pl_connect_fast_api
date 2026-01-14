@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlmodel.ext.asyncio.session import AsyncSession
 from datetime import datetime
 import uuid
-from .security import hash_password, verify_password
+from .dependencies import hash_password, verify_password
 
 
 class UserService:
